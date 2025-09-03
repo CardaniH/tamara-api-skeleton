@@ -12,7 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // ESTA ES LA LÍNEA MÁGICA QUE SOLUCIONA TODO
+        // Esta línea es crucial para que Sanctum funcione con React
         $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions) {
