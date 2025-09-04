@@ -24,9 +24,7 @@ class DepartmentController extends Controller
             return response()->json(['error' => 'No tienes permisos para acceder a esta sección'], 403);
         }
 
-        return response()->json([
-            'departments' => Department::orderBy('name')->get()
-        ]);
+        return Department::orderBy('name')->get();
     }
 
     public function store(Request $request)
