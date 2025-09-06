@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/Api/AuthController.php
 
 namespace App\Http\Controllers\Api;
 
@@ -11,9 +12,6 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    /**
-     * Handle an incoming authentication request.
-     */
     public function login(Request $request)
     {
         $request->validate([
@@ -29,24 +27,22 @@ class AuthController extends Controller
             ]);
         }
 
-        // Crear el token para el usuario
+        // ← SOLUCIÓN: Cargar relaciones desde el login
+        $user->load(['role', 'department', 'subdepartment']);
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user
+            'user' => $user  // Ya incluye role, department, subdepartment
         ]);
     }
 
-    /**
-     * Destroy an authenticated session.
-     */
     public function logout(Request $request)
     {
-        // Revocar el token actual del usuario
         $request->user()->currentAccessToken()->delete();
-
         return response()->json(['message' => 'Sesión cerrada exitosamente.']);
     }
 }
+// ← FIN AuthController.php

@@ -1,4 +1,5 @@
 <?php
+// app/Models/User.php
 
 namespace App\Models;
 
@@ -11,20 +12,43 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $fillable = [ 'name', 'email', 'password', 'role_id' ];
-    protected $hidden = [ 'password', 'remember_token' ];
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role_id',
+        'department_id',
+        'subdepartment_id',
+        'position'
+    ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    // ← CAMBIO: Usar propiedad $casts en lugar de función casts()
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'role_id' => 'integer',
+        'department_id' => 'integer',
+        'subdepartment_id' => 'integer',
+    ];
+
+    // ← TODAS LAS RELACIONES NECESARIAS
+    public function role()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'role_id' => 'integer', // ¡CRUCIAL! Esto fuerza que role_id sea siempre un número.
-        ];
+        return $this->belongsTo(Role::class);
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function subdepartment()
+    {
+        return $this->belongsTo(Subdepartment::class);
     }
 }

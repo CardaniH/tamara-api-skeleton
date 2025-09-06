@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\SubdepartmentController; // <-- AÑADIR ESTA LÍNEA
-
+use App\Http\Controllers\Api\DashboardController;
 // Rutas públicas
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -21,4 +21,6 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // NUEVA RUTA - Añadir esta línea
     Route::apiResource('subdepartments', SubdepartmentController::class);
+     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+   
 });
