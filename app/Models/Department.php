@@ -4,19 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Department extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'description'];
 
-    /**
-     * Relación con Subdepartments
-     */
-    public function subdepartments(): HasMany
+    // ← RELACIÓN QUE FALTA
+    public function users()
     {
-        return $this->hasMany(Subdepartment::class);
+        return $this->hasMany(\App\Models\User::class, 'department_id');
+    }
+
+    // Opcional: si usas subdepartamentos
+    public function subdepartments()
+    {
+        return $this->hasMany(\App\Models\Subdepartment::class, 'department_id');
     }
 }
