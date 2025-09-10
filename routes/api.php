@@ -12,8 +12,13 @@ Route::post('/login', [AuthController::class, 'login']);
 // Rutas protegidas
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+    $user = $request->user()->load(['role', 'department', 'subdepartment']);
+    
+    return response()->json([
+        'success' => true,
+        'user' => $user
+    ]);
+});
     Route::post('/logout', [AuthController::class, 'logout']);
     
     // Rutas existentes
@@ -21,6 +26,21 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // NUEVA RUTA - Añadir esta línea
     Route::apiResource('subdepartments', SubdepartmentController::class);
+
+    
      Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+      Route::prefix('sharepoint')->group(function () {
+        Route::get('/files', [App\Http\Controllers\Api\SharePointController::class, 'files']);
+        Route::get('/file/{id}', [App\Http\Controllers\Api\SharePointController::class, 'file']);
+        Route::get('/stats', [App\Http\Controllers\Api\SharePointController::class, 'stats']);
+    });
+     Route::prefix('sharepoint')->group(function () {
+        Route::get('/documents', [App\Http\Controllers\Api\SharePointDocumentsController::class, 'index']);
+        Route::get('/documents/search', [App\Http\Controllers\Api\SharePointDocumentsController::class, 'search']);
+        Route::get('/documents/stats', [App\Http\Controllers\Api\SharePointDocumentsController::class, 'stats']);
+        Route::get('/documents/{id}', [App\Http\Controllers\Api\SharePointDocumentsController::class, 'show']);
+    });
+    
+
    
 });
