@@ -75,18 +75,30 @@ class FetchSharePointData implements ShouldQueue
         ], 1800); // 30 minutos
 
         // ✅ DESPACHAR TODOS LOS CHUNKS NECESARIOS
-        foreach ($chunks as $index => $chunk) {
-            $chunkKey = "chunk_" . ($index + 1);
-            
-            ProcessSharePointChunk::dispatch($chunk, $chunkKey)
-                ->delay(now()->addSeconds($index * 3)); // Escalar cada 3 segundos
-        }
+        Log::info("⚡ PROCESANDO CHUNKS SÍNCRONAMENTE PARA DEBUG");
+
+foreach ($chunks as $index => $chunk) {
+    $chunkKey = "chunk_" . ($index + 1);
+    
+    // Procesar inmediatamente SIN cola
+    try {
+        $job = new ProcessSharePointChunk($chunk, $chunkKey);
+        $job->handle(app(SharePointService::class));
+        Log::info("✅ Chunk {$chunkKey} procesado síncronamente");
+    } catch (\Exception $e) {
+        Log::error("❌ Error en chunk {$chunkKey}: " . $e->getMessage());
+    }
+}
+
+// Consolidar también síncronamente
+$consolidateJob = new ConsolidateSharePointData();
+$consolidateJob->handle();
 
         Log::info("📤 Despachados {$totalChunks} chunks para procesamiento COMPLETO");
         
         // ✅ DESPACHAR JOB DE CONSOLIDACIÓN FINAL
         ConsolidateSharePointData::dispatch()
-            ->delay(now()->addMinutes(5)); // Después de que terminen los chunks
+            ->delay(now()->addSeconds(30)); // Después de que terminen los chunks
 
     } catch (\Exception $e) {
         Log::error('❌ Error en SharePoint job completo: ' . $e->getMessage());
