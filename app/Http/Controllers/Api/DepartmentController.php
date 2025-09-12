@@ -48,7 +48,7 @@ class DepartmentController extends Controller
     public function show(Department $department)
     {
         $user = Auth::user();
-        if (!$user || $user->role_id !== 1) {
+        if (!$user || $user->role_id !== 1)  {
             return response()->json(['error' => 'No tienes permisos'], 403);
         }
 

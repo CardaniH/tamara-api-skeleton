@@ -27,72 +27,93 @@ class UserController extends Controller
         6 => ['read_protocols', 'read_documents']
     ];
 
-    public function index(Request $request)
-    {
-        try {
-            $perPage = $request->get('per_page', 15);
-            $search = $request->get('search', '');
-            $roleFilter = $request->get('role_filter', '');
-            $departmentFilter = $request->get('department_filter', '');
-
-            $currentUser = auth()->user();
-            
-            $query = User::query()
-                ->when($search, function ($query, $search) {
-                    $query->where('name', 'like', "%{$search}%")
-                          ->orWhere('email', 'like', "%{$search}%");
-                })
-                ->when($roleFilter, function ($query, $roleFilter) {
-                    $query->where('role_id', $roleFilter);
-                })
-                ->when($departmentFilter, function ($query, $departmentFilter) {
-                    $query->where('department_id', $departmentFilter);
-                })
-                ->with(['department', 'subdepartment']);
-
-            // Filtrar según el rol del usuario actual
-            switch ($currentUser->role_id) {
-                case 1: // Admin Global - Ve todos
-                    break;
-                case 2: // Director - Solo su departamento
-                    $query->where('department_id', $currentUser->department_id);
-                    break;
-                case 3: // Jefe - Solo su subdepartamento
-                    $query->where('subdepartment_id', $currentUser->subdepartment_id);
-                    break;
-                case 5: // Auditor - Ve todos para auditoría
-                    break;
-                default: // Otros roles no pueden gestionar usuarios
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No tienes permisos para gestionar usuarios'
-                    ], 403);
-            }
-
-            $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
-
-            return response()->json([
-                'success' => true,
-                'data' => $users->items(),
-                'pagination' => [
-                    'current_page' => $users->currentPage(),
-                    'last_page' => $users->lastPage(),
-                    'per_page' => $users->perPage(),
-                    'total' => $users->total(),
-                    'from' => $users->firstItem(),
-                    'to' => $users->lastItem(),
-                ],
-                'roles' => $this->roles,
-                'current_user_permissions' => $this->rolePermissions[$currentUser->role_id] ?? []
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener usuarios: ' . $e->getMessage()
-            ], 500);
+public function index(Request $request)
+{
+    try {
+        $currentUser = auth()->user();
+        
+        if (!$currentUser) {
+            return response()->json(['error' => 'No autenticado'], 401);
         }
+
+        $query = User::with(['department', 'subdepartment', 'role']);
+
+        // === FILTROS DE CONSULTA ===
+        
+        // Filtro por department_id (para crear tareas departamentales)
+        if ($request->has('department_id') && $request->department_id) {
+            $query->where('department_id', $request->department_id);
+        }
+        
+        // Filtro por subdepartment_id (para crear tareas subdepartamentales)  
+        if ($request->has('subdepartment_id') && $request->subdepartment_id) {
+            $query->where('subdepartment_id', $request->subdepartment_id);
+        }
+
+        // === RESTRICCIONES POR ROL ===
+        
+        switch ($currentUser->role_id) {
+            case 1: // Admin Global - Ve todos los usuarios
+                break;
+                
+            case 2: // Director - Solo usuarios de su departamento
+                if ($currentUser->department_id) {
+                    $query->where('department_id', $currentUser->department_id);
+                }
+                break;
+                
+            case 3: // Jefe - Solo usuarios de su departamento  
+                if ($currentUser->department_id) {
+                    $query->where('department_id', $currentUser->department_id);
+                }
+                break;
+                
+            case 5: // Auditor - Ve todos
+                break;
+                
+            default: // Otros roles - Solo usuarios de su departamento
+                if ($currentUser->department_id) {
+                    $query->where('department_id', $currentUser->department_id);
+                } else {
+                    // Si no tiene departamento, retorna vacío
+                    return response()->json([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                }
+        }
+
+        // === APLICAR OTROS FILTROS SI EXISTEN ===
+        
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->has('role_filter') && $request->role_filter) {
+            $query->where('role_id', $request->role_filter);
+        }
+
+        $users = $query->orderBy('name')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $users
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error en UserController@index: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener usuarios',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function stats()
     {

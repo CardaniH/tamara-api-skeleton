@@ -14,12 +14,71 @@ class SubdepartmentController extends Controller
     /**
      * Lista todos los subdepartamentos con sus departamentos
      */
-    public function index()
-    {
-        $this->authorize('manage-structure'); // ✅ Autorización dentro del método
+    public function index(Request $request)
+{
+    try {
+        $user = auth()->user();
         
-        return Subdepartment::with('department')->orderBy('name')->get();
+        if (!$user) {
+            return response()->json(['error' => 'No autenticado'], 401);
+        }
+
+        $query = Subdepartment::with('department')->orderBy('name');
+
+        // === FILTRO POR DEPARTMENT_ID ===
+        
+        if ($request->has('department_id') && $request->department_id) {
+            $departmentId = $request->department_id;
+            
+            // Verificar que el departamento existe
+            $departmentExists = \App\Models\Department::where('id', $departmentId)->exists();
+            if (!$departmentExists) {
+                return response()->json([
+                    'error' => 'Departamento no encontrado'
+                ], 404);
+            }
+            
+            $query->where('department_id', $departmentId);
+        }
+
+        // === RESTRICCIONES POR ROL ===
+        
+        switch ($user->role_id) {
+            case 1: // Admin Global - Ve todos
+                break;
+                
+            case 2: // Director - Solo subdepartamentos de su departamento
+            case 3: // Jefe - Solo subdepartamentos de su departamento
+                if ($user->department_id) {
+                    $query->where('department_id', $user->department_id);
+                }
+                break;
+                
+            case 5: // Auditor - Ve todos
+                break;
+                
+            default: // Otros roles
+                if ($user->department_id) {
+                    $query->where('department_id', $user->department_id);
+                } else {
+                    // Si no tiene departamento, retorna vacío
+                    return response()->json([]);
+                }
+        }
+
+        $subdepartments = $query->get();
+
+        return response()->json($subdepartments);
+
+    } catch (\Exception $e) {
+        \Log::error('Error en SubdepartmentController@index: ' . $e->getMessage());
+        
+        return response()->json([
+            'error' => 'Error al obtener subdepartamentos',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Crear un nuevo subdepartamento

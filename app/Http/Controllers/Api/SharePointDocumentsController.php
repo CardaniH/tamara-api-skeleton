@@ -69,52 +69,52 @@ class SharePointDocumentsController extends Controller
      * ✅ Buscar documentos por término
      */
     public function search(Request $request)
-    {
-        $query = $request->get('q', '');
-        
-        if (strlen($query) < 2) {
-            return response()->json([
-                'success' => false,
-                'message' => 'La búsqueda debe tener al menos 2 caracteres'
-            ], 422);
-        }
-        
-        try {
-            $allDocuments = $this->getAllDocumentsFromChunks();
-            
-            if (empty($allDocuments)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No hay documentos disponibles para buscar',
-                    'data' => []
-                ]);
-            }
-            
-            // Buscar en nombre, ruta y modificado por
-            $results = collect($allDocuments)->filter(function($doc) use ($query) {
-                return stripos($doc['name'], $query) !== false ||
-                       stripos($doc['folderPath'] ?? '', $query) !== false ||
-                       stripos($doc['modifiedBy'] ?? '', $query) !== false;
-            })->take(50)->values()->all();
-            
-            return response()->json([
-                'success' => true,
-                'data' => $results,
-                'query' => $query,
-                'total_found' => count($results),
-                'limited_to' => 50,
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('SharePoint search error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Error en la búsqueda',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+{
+    $query    = $request->get('q', '');
+    $page     = (int) $request->get('page', 1);
+    $perPage  = (int) $request->get('per_page', 15);
+
+    if (strlen($query) < 2) {
+        return response()->json([
+            'success' => false,
+            'message' => 'La búsqueda debe tener al menos 2 caracteres'
+        ], 422);
     }
+
+    $allDocuments = $this->getAllDocumentsFromChunks();
+    if (empty($allDocuments)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No hay documentos disponibles para buscar',
+            'data'    => []
+        ]);
+    }
+
+    $results = collect($allDocuments)->filter(fn ($d) =>
+        str_contains(strtolower($d['name']), strtolower($query)) ||
+        str_contains(strtolower($d['folderPath'] ?? ''), strtolower($query)) ||
+        str_contains(strtolower($d['modifiedBy'] ?? ''), strtolower($query))
+    );
+
+    // PAGINAR
+    $total   = $results->count();
+    $offset  = ($page - 1) * $perPage;
+    $paginated = $results->slice($offset, $perPage)->values()->all();
+
+    return response()->json([
+        'success'    => true,
+        'data'       => $paginated,
+        'pagination' => [
+            'current_page' => $page,
+            'per_page'     => $perPage,
+            'total'        => $total,
+            'last_page'    => ceil($total / $perPage),
+            'from'         => $offset + 1,
+            'to'           => min($offset + $perPage, $total),
+            'has_more'     => ($page * $perPage) < $total,
+        ],
+    ]);
+}
     
     /**
      * ✅ Obtener documento específico por ID
